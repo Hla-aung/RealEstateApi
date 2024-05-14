@@ -52,5 +52,12 @@ class RealEstate(models.Model):
     photo_three = models.ImageField(upload_to="estatequery/", null=True)
     is_published = models.BooleanField(default=False)
 
+    # To delete images in media file
+    def delete(self):
+        self.main_photo.storage.delete(self.main_photo.name)
+        self.photo_one.storage.delete(self.photo_one.name)
+        self.photo_two.storage.delete(self.photo_two.name)
+        self.photo_three.storage.delete(self.photo_three.name)
+
     def __str__(self) -> str:
         return self.title

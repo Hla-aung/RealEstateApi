@@ -82,6 +82,63 @@ class RealEstateManageView(GenericAPIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except:
             return Response({"message": "Something went wrong when updating realestate data"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def patch(self, request):
+        try:
+            user = request.user
+            if not user.is_realtor:
+                return Response({"message": "User must be realtor to update realestate data"}, status=status.HTTP_403_FORBIDDEN)
+            
+            try:
+                slug = request.query_params.get('slug')
+            except:
+                return Response({"message": "Slug is not provided"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            data = request.data
+            is_published = data["is_published"]
+            
+            if not RealEstate.objects.filter(
+                realtor=user.id,
+                slug=slug
+            ).exists():
+                return Response({"message": "Realestate data are not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+            RealEstate.objects.filter(realtor=user.id, slug=slug).update(is_published=is_published)
+
+            return Response({"message": "Updated successfully"}, status=status.HTTP_204_NO_CONTENT)
+
+        except:
+            return Response({"message": "Something went wrong when updating realestate data"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    def delete(self, request):
+        try:
+            user = request.user
+            if not user.is_realtor:
+                return Response({"message": "User must be realtor to update realestate data"}, status=status.HTTP_403_FORBIDDEN)
+            
+            try:
+                slug = request.query_params.get('slug')
+            except:
+                return Response({"message": "Slug is not provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+            if not RealEstate.objects.filter(
+                realtor=user.id,
+                slug=slug
+            ).exists():
+                return Response({"message": "Realestate data are not found"}, status=status.HTTP_404_NOT_FOUND)
+
+            RealEstate.objects.filter(realtor=user.id, slug=slug).delete()
+
+            if not RealEstate.objects.filter(
+                realtor=user.id,
+                slug=slug
+            ).exists():
+                return Response({"message": "Deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+            else:
+                return Response({"message": "Failed to delete"}, status=status.HTTP_400_BAD_REQUEST)
+
+        except:
+            return Response({"message": "Something went wrong when deleting realestate data"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class RealEstateDetailView(GenericAPIView):
     queryset = RealEstate
