@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.contrib.postgres.search import SearchVector, SearchQuery
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.generics import GenericAPIView
@@ -179,3 +180,60 @@ class RealEstateListView(GenericAPIView):
         
         except:
             return Response({"message": "Something went wrong when retrieving realestate data"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class RealEstateSearchView(GenericAPIView):
+    queryset = RealEstate.objects.all()
+    serializer_class = RealEstateSerializer
+    permission_classes = [AllowAny]
+
+    def get(self, request, format=None):
+        try:
+            keyword = request.query_params.get("keyword", "")
+            city = request.query_params.get("city")
+            state = request.query_params.get("state")
+
+            max_price = request.query_params.get("max_price")
+            max_price = int(max_price) if max_price else 99999999
+            
+            bedrooms = request.query_params.get("bedrooms")
+            bedrooms = int(bedrooms) if bedrooms else 0
+            
+            bathrooms = request.query_params.get("bathrooms")
+            bathrooms = int(bathrooms) if bathrooms else 0
+            
+            rent_or_sale_status = request.query_params.get("rent_or_sale")
+            type = request.query_params.get("type")
+
+            # Build the filter arguments dynamically
+            filter_args = {
+                "price__lte": max_price,
+                "no_of_bedrooms__gte": bedrooms,
+                "no_of_bathrooms__gte": bathrooms,
+                "is_published": True
+            }
+
+            if city:
+                filter_args["city"] = city
+            if state:
+                filter_args["state"] = state
+            if rent_or_sale_status:
+                filter_args["rent_or_sale_status"] = rent_or_sale_status
+            if type:
+                filter_args["type"] = type
+
+            # Perform the search
+            queryset = RealEstate.objects.filter(**filter_args)
+
+            if keyword:
+                vector = SearchVector('title', 'overview')
+                query = SearchQuery(keyword)
+                queryset = queryset.annotate(search=vector).filter(search=query)
+
+            if not queryset.exists():
+                return Response({"message": "No search data is found"}, status=status.HTTP_404_NOT_FOUND)
+
+            serializer = RealEstateSerializer(queryset, many=True)
+            return Response({"data": serializer.data}, status=status.HTTP_200_OK)
+
+        except:
+            return Response({"message": "Something went wrong when searching realestate data"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
